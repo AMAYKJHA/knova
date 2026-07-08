@@ -64,16 +64,31 @@ The app runs at `http://localhost:3000`.
 
 ## Branching Strategy
 
-- `main` is the stable, deployable branch. Do not commit to it directly.
-- Create a feature branch off `main` for every change:
+- `main` is the protected release branch. **Do not commit to, branch off, or open
+  PRs against `main`** — it is updated only by maintainers via release merges.
+- `dev` is the shared integration branch. All contributions start from and target `dev`.
+- Always create your feature branch off the latest `dev`:
 
   ```bash
+  git checkout dev
+  git pull origin dev
   git checkout -b feat/topic-recommendations
-  git checkout -b fix/auth-token-refresh
   ```
 
 - Use short, descriptive, kebab-case branch names prefixed by type
   (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`).
+
+- Keep your branch up to date with `dev` by rebasing (not merging) before you push
+  and again before requesting review:
+
+  ```bash
+  git checkout dev
+  git pull origin dev
+  git checkout your-branch
+  git rebase dev
+  # resolve any conflicts, then:
+  git push --force-with-lease
+  ```
 
 ---
 
@@ -169,9 +184,11 @@ Please describe how you verified your change in the pull request.
 
 ## Pull Requests
 
+Open every PR **against `dev`** — never against `main`.
+
 Before opening a PR:
 
-1. Rebase or merge the latest `main` into your branch.
+1. Rebase your branch onto the latest `dev` (see [Branching Strategy](#branching-strategy)).
 2. Ensure your branch builds, lints, and (where applicable) tests pass.
 3. Keep PRs focused — one logical change per PR.
 
