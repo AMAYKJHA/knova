@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
-import BottomBar from '@/components/layout/BottomBar';
 import CreatorCard from '@/components/cards/CreatorCard';
 import FlashCard from '@/components/cards/FlashCard';
 import TextCard from '@/components/cards/TextContentCard';
@@ -32,13 +31,26 @@ export default function HomePage() {
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
 
+    // Check query params to open modal (redirected from another page or direct link)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') === 'true') {
+      setCreateModalOpen(true);
+      window.history.replaceState({}, '', '/');
+    }
+
+    // Listen to custom event from the global BottomBar
+    const handleOpen = () => setCreateModalOpen(true);
+    window.addEventListener('open-create-modal', handleOpen);
+
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', checkScreenSize);
+      window.removeEventListener('open-create-modal', handleOpen);
     };
   }, []);
 
   const handleShare = (id: string | number) => {
+    console.log("share clicked:", id);
     setShareContentId(id);
     setShareModalOpen(true);
   };
@@ -74,8 +86,6 @@ export default function HomePage() {
           </div>
         )}
       </main>
-
-      <BottomBar />
 
       {!isMobile && (
         <button 

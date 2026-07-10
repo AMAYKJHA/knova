@@ -37,7 +37,7 @@ export default function Navbar() {
           />
         </div>
 
-        <nav className="hidden xl:flex items-center gap-1 flex-1 justify-center">
+        <nav className="hidden md:flex items-center gap-1 flex-1 justify-center">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -46,13 +46,13 @@ export default function Navbar() {
                 href={link.href}
                 className={`flex items-center gap-2 py-2 px-4 rounded-xl group transition-colors ${
                   isActive
-                    ? 'font-bold bg-primary/10 text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container-high'
+                    ? 'font-bold bg-orange-100 text-orange-500'
+                    : 'text-on-surface-variant hover:bg-orange-50'
                 }`}
               >
                 <span
                   className={`material-symbols-outlined text-xl transition-colors ${
-                    isActive ? '' : 'group-hover:text-primary'
+                    isActive ? 'text-orange-500' : 'text-orange-500 group-hover:text-orange-600'
                   }`}
                   style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                 >
