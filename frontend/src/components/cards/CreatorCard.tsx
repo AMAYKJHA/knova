@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-export default function CreatorCard() {
+export default function CreatorCard( { onCreateClick }: {onCreateClick?: () => void }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {

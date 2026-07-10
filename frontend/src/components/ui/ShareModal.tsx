@@ -1,27 +1,10 @@
 'use client';
 
+import { X, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-interface ShareModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  contentId: string | number | null; // Changed to allow null
-}
-
-export default function ShareModal({ isOpen, onClose, contentId }: ShareModalProps) {
+export default function ShareModal({ isOpen, onClose, contentId }: { isOpen: boolean; onClose: () => void; contentId: string | number | null }) {
   const [copied, setCopied] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -34,8 +17,9 @@ export default function ShareModal({ isOpen, onClose, contentId }: ShareModalPro
     };
   }, [isOpen]);
 
-  // Safe URL generation even if contentId is null
-  const shareUrl = contentId ? `https://knova.edu/content/${contentId}` : '';
+  if (!isOpen) return null;
+
+  const shareUrl = contentId ? `https://knova.edu/post/${contentId}` : '';
 
   const handleCopy = () => {
     if (!contentId) return;
@@ -48,65 +32,37 @@ export default function ShareModal({ isOpen, onClose, contentId }: ShareModalPro
     });
   };
 
-  if (!isOpen) return null;
-
-  if (isMobile) {
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
-        <div className="w-full max-w-[320px] bg-white rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
-          <div className="flex justify-between items-center mb-1">
-            <h3 className="font-headline-sm text-on-surface">Share knowledge</h3>
-            <button className="material-symbols-outlined text-on-surface-variant" onClick={onClose}>
-              close
-            </button>
-          </div>
-          <div className="bg-surface-container-low p-4 rounded-xl border border-border-subtle flex flex-col gap-2">
-            <p className="text-label-md text-on-surface-variant">Direct Link</p>
-            <span className="text-body-sm truncate text-on-surface font-medium">{shareUrl}</span>
-          </div>
-          <button
-            className={`w-full h-12 rounded-xl font-label-lg flex items-center justify-center active:scale-95 transition-transform ${
-              copied ? 'bg-secondary text-white' : 'bg-primary text-white'
-            }`}
-            onClick={handleCopy}
-          >
-            {copied ? 'Copied!' : 'Copy Link'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-headline-md font-headline-md text-on-surface">Share this content</h3>
-          <button className="material-symbols-outlined text-outline hover:text-on-surface" onClick={onClose}>
-            close
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-[400px] shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+        
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-gray-900 text-xl">Share knowledge</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors bg-gray-50 hover:bg-gray-100 p-2 rounded-full">
+            <X size={20} />
           </button>
         </div>
-        <div className="space-y-4">
-          <p className="text-body-md text-on-surface-variant">Copy the link below to share with others:</p>
-          <div className="flex items-center gap-2 p-3 bg-surface-container rounded-xl border border-outline-variant">
+        
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 font-medium">Copy the link below to share with others:</p>
+          <div className="flex items-center gap-2 p-1.5 pl-3 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all">
             <input
-              className="bg-transparent border-none focus:ring-0 text-sm flex-1 font-mono text-outline"
+              className="bg-transparent border-none focus:ring-0 text-sm flex-1 text-gray-700 outline-none w-full min-w-0"
               readOnly
               value={shareUrl}
             />
             <button
-              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
-                copied ? 'bg-green-600 text-white' : 'bg-primary text-white hover:bg-on-primary-fixed-variant'
-              }`}
               onClick={handleCopy}
+              className={`px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors flex-shrink-0 ${
+                copied ? 'bg-green-500 text-white' : 'bg-orange-600 text-white hover:bg-orange-700'
+              }`}
             >
-              <span className="material-symbols-outlined text-sm">
-                {copied ? 'check' : 'content_copy'}
-              </span>
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

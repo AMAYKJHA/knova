@@ -1,6 +1,6 @@
 'use client';
-
-import { FeedActions, ReelActions } from './Shared';
+import { useState } from 'react';
+import { FeedActions, ReelActions, CommentsSection } from './Shared';
 
 interface TextProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
@@ -31,6 +31,7 @@ export default function TextCard(props: TextProps) {
 }
 
 function TextFeed({ author, time, title, content, upvotes, downvotes, comments, authorInitial, authorBg, id, onShare }: TextProps) {
+  const [showComments, setShowComments] = useState(false);
   return (
     <div className="glass-card rounded-2xl overflow-hidden hover-lift transition-all duration-300">
       <div className="p-8 pb-4 bg-white">
@@ -52,7 +53,16 @@ function TextFeed({ author, time, title, content, upvotes, downvotes, comments, 
           Read more...
         </button>
       </div>
-      <FeedActions upvotes={upvotes || 0} downvotes={downvotes || 0} comments={comments || 0} onShare={() => onShare && id && onShare(id)} />
+      <FeedActions
+        upvotes={upvotes || 0}
+        downvotes={downvotes || 0}
+        comments={comments || 0}
+        onShare={() => onShare && id && onShare(id)}
+        onCommentToggle={() => setShowComments(!showComments)}
+        showComments={showComments}
+      />
+
+      <CommentsSection show={showComments} />
     </div>
   );
 }
@@ -129,3 +139,5 @@ function TextProfile({ tag, title, content }: TextProps) {
     </div>
   );
 }
+
+

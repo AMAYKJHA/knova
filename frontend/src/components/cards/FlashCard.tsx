@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FeedActions, ReelActions } from './Shared';
+import { FeedActions, ReelActions, CommentsSection } from './Shared';
 
 interface CardProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
@@ -37,10 +37,11 @@ function FlashCardFeed({
   author, time, question, answer, upvotes, downvotes, comments, authorInitial, authorBg, answerBg, id, onShare
 }: CardProps) {
   const [flipped, setFlipped] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden hover-lift transition-all duration-300">
-      <div className="p-6 border-b border-surface-variant flex justify-between items-center bg-white">
+      <div className="p-6 border-b border-orange-100 bg-gradient-to-r from-orange-50 via-white to-orange-50 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${authorBg}`}>
             {authorInitial}
@@ -53,22 +54,31 @@ function FlashCardFeed({
         <button className="material-symbols-outlined text-outline">more_horiz</button>
       </div>
 
-      <div className="relative w-full h-[300px] perspective-1000 group cursor-pointer" onClick={() => setFlipped(!flipped)}>
+      <div className="relative w-full h-[300px] perspective-1000 group cursor-pointer overflow-hidden" onClick={() => setFlipped(!flipped)}>
         <div className={`FlashCard-inner relative w-full h-full text-center flex flex-col items-center justify-center ${flipped ? 'is-flipped' : ''}`} style={{ transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)', transformStyle: 'preserve-3d' }}>
           <div className="FlashCard-front absolute inset-0 p-12 flex flex-col items-center justify-center bg-gradient-to-br from-white to-surface-container-low" style={{ backfaceVisibility: 'hidden' }}>
-            <h2 className="text-headline-lg text-on-surface max-w-lg mb-4">{question}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">{question}</h2>
             <p className="text-primary font-bold text-sm flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">touch_app</span> Tap to reveal answer
             </p>
           </div>
+
           <div className={`FlashCard-back absolute inset-0 p-12 flex flex-col items-center justify-center ${answerBg} text-white`} style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}>
-            <h2 className="text-[48px] font-bold text-white max-w-lg mb-4">{answer}</h2>
+            <h2 className="text-3xl font-bold text-white  mb-4">{answer}</h2>
             <p className="text-white/80 text-sm">Tap to see question</p>
           </div>
         </div>
       </div>
 
-      <FeedActions upvotes={upvotes || 0} downvotes={downvotes || 0} comments={comments || 0} onShare={() => onShare && id && onShare(id)} />
+      <FeedActions
+        upvotes={upvotes || 0}
+        downvotes={downvotes || 0}
+        comments={comments || 0}
+        onShare={() => onShare && id && onShare(id)}
+        onCommentToggle={() => setShowComments(!showComments)}
+        showComments={showComments}
+      />
+      <CommentsSection show={showComments} />
     </div>
   );
 }
@@ -161,3 +171,4 @@ function FlashCardProfile({ question }: CardProps) {
     </div>
   );
 }
+
