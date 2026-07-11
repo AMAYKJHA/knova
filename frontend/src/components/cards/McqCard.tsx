@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { FeedActions, ReelActions } from './Shared';
+import { FeedActions, ReelActions, CommentsSection } from './Shared';
+import { CheckCircle2, XCircle, MoreHorizontal } from 'lucide-react';
 
 interface McqProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
@@ -34,8 +35,9 @@ export default function McqCard(props: McqProps) {
   return null;
 }
 
-function MCQFeed({ author, time, question, options, correctIndex, explanation, upvotes, downvotes, authorInitial, authorBg, authorImg, id, onShare }: McqProps) {
+function MCQFeed({ author, time, question, options, correctIndex, explanation, upvotes, downvotes,comments, authorInitial, authorBg, authorImg, id, onShare }: McqProps) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [showComments, setShowComments] = useState(false);
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden hover-lift transition-all duration-300">
@@ -60,7 +62,7 @@ function MCQFeed({ author, time, question, options, correctIndex, explanation, u
 
       <div className="p-8 bg-white">
         <h4 className="text-[24px] font-bold text-on-surface mb-8 leading-tight">{question}</h4>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {options?.map((opt, i) => {
             const isSelected = selected === i;
@@ -84,7 +86,7 @@ function MCQFeed({ author, time, question, options, correctIndex, explanation, u
             }
 
             return (
-              <button 
+              <button
                 key={opt}
                 disabled={selected !== null}
                 onClick={() => setSelected(i)}
@@ -115,8 +117,16 @@ function MCQFeed({ author, time, question, options, correctIndex, explanation, u
           </div>
         )}
       </div>
-      
-      <FeedActions upvotes={upvotes || 0} downvotes={downvotes || 0} comments={0} onShare={() => onShare && id && onShare(id)} />
+
+      <FeedActions
+        upvotes={upvotes || 0}
+        downvotes={downvotes || 0}
+        comments={comments || 0}
+        onShare={() => onShare && id && onShare(id)}
+        onCommentToggle={() => setShowComments(!showComments)}
+        showComments={showComments}
+      />
+      <CommentsSection show={showComments} />
     </div>
   );
 }
@@ -129,7 +139,7 @@ function MCQReel({ question, options, correctIndex, explanation, tags, author, t
       <div className="w-[440px] h-[90vh] bg-white rounded-[16px] shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex flex-col relative z-20 text-[#1a1a1a]">
         <div className="flex-1 p-6 flex flex-col justify-start pt-12 overflow-y-auto custom-scrollbar">
           <h2 className="font-bold text-[22px] leading-tight mb-8">{question}</h2>
-          
+
           <div className="space-y-4">
             {options?.map((opt, i) => {
               const isSelected = selected === i;
