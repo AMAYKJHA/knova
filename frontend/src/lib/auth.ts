@@ -1,22 +1,22 @@
 import { api } from "@/lib/api";
-import { LoginRequest, RegisterRequest } from "@/types/authentication";
+import { LoginRequest, RegisterRequest, AuthResponse, } from "@/types/authentication";
 
 export function login(data: LoginRequest) {
-    return api("/login", {
+    return api<AuthResponse>("/login", {
         method: "POST",
         body: JSON.stringify(data),
     });
 }
 
 export function register(data: RegisterRequest) {
-    return api("/register", {
+    return api<AuthResponse>("/register", {
         method: "POST",
         body: JSON.stringify(data),
     });
 }
 
 export function refresh() {
-    return api("/refresh", {
+    return api<AuthResponse>("/refresh", {
         method: "POST",
     });
 }

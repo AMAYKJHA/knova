@@ -1,12 +1,31 @@
 'use client';
 
-import { useState, useEffect, useRef, RefCallback, FormEvent } from 'react';
+import { useState, useEffect, useRef, RefCallback } from 'react';
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { SignUpSchema } from "@/schemas/signUp";
 import Link from 'next/link';
+
+type SignUpFormData = z.infer<typeof SignUpSchema>;
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
+  const { register: registerUser, loading, error } = useAuth();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpFormData>({
+    resolver: zodResolver(SignUpSchema),
+  });
+
   // Define type for array of HTML elements or null
   const animRefs = useRef<(HTMLDivElement | HTMLElement | null)[]>([]);
 
@@ -14,10 +33,10 @@ export default function RegisterPage() {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
-    
+
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
@@ -35,12 +54,20 @@ export default function RegisterPage() {
     });
   }, []);
 
-  const ref = (i: number): RefCallback<HTMLDivElement | HTMLElement> => 
+  const ref = (i: number): RefCallback<HTMLDivElement | HTMLElement> =>
     (el) => { animRefs.current[i] = el; };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    // Handle registration logic
+  const onSubmit = async (data: SignUpFormData) => {
+    try {
+      await registerUser({
+        email: data.email,
+        full_name: data.name,
+        password: data.password,
+      });
+      router.push("/");
+    } catch {
+      // error is already captured by useAuth and rendered below
+    }
   };
 
   // Mobile View
@@ -68,36 +95,43 @@ export default function RegisterPage() {
           </header>
 
           {/* Form */}
-          <section className="w-full flex flex-col gap-3">
-            <div ref={ref(1)} className="form-group">
+          <form className="w-full flex flex-col gap-3" onSubmit={handleSubmit(onSubmit)} noValidate>
+            {error && (
+              <div ref={ref(1)} className="text-left text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            <div ref={ref(2)} className="form-group text-left">
               <input
                 className="form-input"
                 placeholder="Full name"
                 type="text"
+                {...register("name")}
               />
+              {errors.name && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.name.message}</p>
+              )}
             </div>
 
-            <div ref={ref(2)} className="form-group">
+            <div ref={ref(3)} className="form-group text-left">
               <input
                 className="form-input"
                 placeholder="Email address"
                 type="email"
+                {...register("email")}
               />
+              {errors.email && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.email.message}</p>
+              )}
             </div>
 
-            <div ref={ref(3)} className="form-group">
-              <input
-                className="form-input"
-                placeholder="Username"
-                type="text"
-              />
-            </div>
-
-            <div ref={ref(4)} className="form-group">
+            <div ref={ref(4)} className="form-group text-left">
               <input
                 className="form-input password-input"
                 placeholder="Password"
                 type={showPassword ? 'text' : 'password'}
+                {...register("password")}
               />
               <button
                 type="button"
@@ -108,23 +142,39 @@ export default function RegisterPage() {
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
+              {errors.password && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.password.message}</p>
+              )}
             </div>
 
-            <div ref={ref(5)} className="form-group">
+            <div ref={ref(5)} className="form-group text-left">
               <input
-                className="form-input"
+                className="form-input password-input"
                 placeholder="Confirm password"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                {...register("confirmPassword")}
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <span className="material-symbols-outlined">
+                  {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                </span>
+              </button>
+              {errors.confirmPassword && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.confirmPassword.message}</p>
+              )}
             </div>
 
             <div ref={ref(6)} className="mt-5">
               <button
                 type="submit"
-                onClick={handleSubmit}
-                className="btn-primary"
+                disabled={loading}
+                className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create Account
+                {loading ? "Creating account..." : "Create Account"}
               </button>
             </div>
 
@@ -144,7 +194,7 @@ export default function RegisterPage() {
                 </button>
               </Link>
             </div>
-          </section>
+          </form>
         </main>
 
         {/* Footer */}
@@ -192,8 +242,14 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {error && (
+            <div className="mb-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
           {/* Form */}
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
             <div>
               <label className="block text-[12px] uppercase tracking-wide text-[#5c5c5c] mb-2">
                 Full Name
@@ -202,7 +258,11 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="Full Name"
                 className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all"
+                {...register("name")}
               />
+              {errors.name && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.name.message}</p>
+              )}
             </div>
 
             <div>
@@ -213,7 +273,11 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="Email"
                 className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all"
+                {...register("email")}
               />
+              {errors.email && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
@@ -225,6 +289,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className="w-full h-12 px-4 pr-12 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all"
+                  {...register("password")}
                 />
                 <button
                   type="button"
@@ -236,6 +301,9 @@ export default function RegisterPage() {
                   </span>
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.password.message}</p>
+              )}
             </div>
 
             <div>
@@ -247,6 +315,7 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className="w-full h-12 px-4 pr-12 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all"
+                  {...register("confirmPassword")}
                 />
                 <button
                   type="button"
@@ -258,13 +327,17 @@ export default function RegisterPage() {
                   </span>
                 </button>
               </div>
+              {errors.confirmPassword && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.confirmPassword.message}</p>
+              )}
             </div>
 
             <button
               type="submit"
-              className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm mt-2"
+              disabled={loading}
+              className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Create Account
+              {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 

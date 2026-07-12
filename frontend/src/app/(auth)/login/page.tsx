@@ -1,22 +1,40 @@
 'use client';
 
 import { useState, useEffect, useRef, RefCallback } from 'react';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { LoginSchema } from "@/schemas/login";
+import { useRouter } from "next/navigation";
 import Link from 'next/link';
 
+type LoginFormData = z.infer<typeof LoginSchema>;
+
 export default function LoginPage() {
+  const { login, loading, error } = useAuth();
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   // Define type for array of HTMLDivElement or null
   const animRefs = useRef<(HTMLDivElement | HTMLFormElement | HTMLButtonElement | HTMLElement | null)[]>([]);
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(LoginSchema),
+  });
+
   useEffect(() => {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
-    
+
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
@@ -35,12 +53,16 @@ export default function LoginPage() {
     });
   }, []);
 
-  const ref = (i: number): RefCallback<HTMLDivElement | HTMLFormElement | HTMLButtonElement | HTMLElement> => 
+  const ref = (i: number): RefCallback<HTMLDivElement | HTMLFormElement | HTMLButtonElement | HTMLElement> =>
     (el) => { animRefs.current[i] = el; };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle login logic
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      await login(data);
+      router.push("/");
+    } catch {
+      // error is already captured by useAuth and rendered below
+    }
   };
 
   // Mobile View
@@ -65,22 +87,31 @@ export default function LoginPage() {
           </header>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-5">
-            <div ref={ref(1)} className="form-group">
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="w-full flex flex-col gap-5">
+            {error && (
+              <div ref={ref(1)} className="text-left text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            <div ref={ref(1)} className="form-group text-left">
               <input
-                type="text"
-                required
-                placeholder="Email or username"
+                type="email"
+                placeholder="Email address"
                 className="form-input"
+                {...register("email")}
               />
+              {errors.email && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.email.message}</p>
+              )}
             </div>
 
-            <div ref={ref(2)} className="form-group">
+            <div ref={ref(2)} className="form-group text-left">
               <input
-                required
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 className="form-input password-input"
+                {...register("password")}
               />
               <button
                 type="button"
@@ -91,10 +122,13 @@ export default function LoginPage() {
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
+              {errors.password && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.password.message}</p>
+              )}
             </div>
 
-            <button ref={ref(3)} type="submit" className="btn-primary">
-              Log In
+            <button ref={ref(3)} type="submit" disabled={loading} className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed">
+              {loading ? "Logging in..." : "Log In"}
             </button>
 
             <div ref={ref(4)} className="text-center -mt-1.5">
@@ -120,11 +154,11 @@ export default function LoginPage() {
         {/* Footer */}
         <footer ref={ref(7)} className="w-full mt-auto pb-10 flex flex-col items-center gap-3.5">
           <nav className="auth-footer-nav">
-            <a href="#">About</a>
+            <Link href="/about">About</Link>
             <span className="text-[#d9d9d9]">•</span>
-            <a href="#">Help</a>
+            <Link href="/help">Help</Link>
             <span className="text-[#d9d9d9]">•</span>
-            <a href="#">Contact</a>
+            <Link href="/contact">Contact</Link>
           </nav>
 
           <div className="auth-footer-copy">
@@ -149,9 +183,9 @@ export default function LoginPage() {
       <div className="relative flex flex-col p-8 lg:p-[40px] justify-between overflow-hidden">
         {/* Top Logo */}
         <div className="flex items-center gap-2 z-10">
-          <img 
-            alt="Knova Logo" 
-            className="w-8 h-8 object-contain" 
+          <img
+            alt="Knova Logo"
+            className="w-8 h-8 object-contain"
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3o0xkQHHA3nRWqaiDY65-LbmdhjpzFBWVBVtE0ipG96r1ZUww0nOmA0DtLVnUsZwxChia8uESSmAgKTPqf31qEcL4OezfxlN0YzxMv5FyHCPYWBSul0bxzL1YY8dsUDiEobuEjMcipdHzc1RbFjRChTLdqayDnLa3NCkq67mWbOrB8wHZc_XXCUXnHvdh65Vjb65NQ9xs-JaAtTC56JHt2RDPYo9fD-cv5XqR-MPdPuc8gWaQE8FBOQl49nXfVcwuhsT9_wPr9bQ "
           />
           <h1 className="text-headline-md font-extrabold flex">
@@ -169,8 +203,8 @@ export default function LoginPage() {
                 <span className="bg-blue-tint text-secondary px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                   Multiple Choice
                 </span>
-                <span 
-                  className="material-symbols-outlined text-[#f36710] text-sm" 
+                <span
+                  className="material-symbols-outlined text-[#f36710] text-sm"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
                   star
@@ -201,8 +235,8 @@ export default function LoginPage() {
                 </span>
               </div>
               <div className="aspect-video bg-page-bg rounded-lg mb-4 flex items-center justify-center">
-                <img 
-                  className="w-full h-full object-cover rounded-lg" 
+                <img
+                  className="w-full h-full object-cover rounded-lg"
                   alt="Atom illustration"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQOdWe6DH8nv_ecUl--9gLGcig5hByhN1lhGBBrpH2mA3HpBJmGCjeJOG0mGV1mTTOx3tdcB1iq7moDaNs1wvfeMeVemUFm6Dog_oy__TxbFqvoMLBuqzHLNcuTlrTitwWZK9a2qjNdmpitVdTx9a86tFLwo4CgRc9DBHHcMXh8ulgTNA1Hm2mrf-7cPf6bXxsdzpUKP_m8NeK85lMMDSPDd-9Kr0p7iGqm91SutasLIB-OoAfsHFexyPpyBJ8aDY9Uc3Z5-IK24c "
                 />
@@ -220,8 +254,8 @@ export default function LoginPage() {
                 "The learning curve is steep, but the view from the top is worth it. Keep pushing."
               </p>
               <div className="flex items-center gap-4 text-[#f36710]">
-                <span 
-                  className="material-symbols-outlined text-sm" 
+                <span
+                  className="material-symbols-outlined text-sm"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
                   thumb_up
@@ -268,23 +302,34 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          {error && (
+            <div className="mb-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
             <div>
-              <input 
-                className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md" 
-                placeholder="Email or username" 
-                type="text"
+              <input
+                className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
+                placeholder="Email address"
+                type="email"
+                {...register("email")}
               />
+              {errors.email && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="relative">
-              <input 
-                className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md" 
-                placeholder="Password" 
+              <input
+                className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
+                placeholder="Password"
                 type={showPassword ? "text" : "password"}
+                {...register("password")}
               />
-              <button 
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5c5c5c]" 
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5c5c5c]"
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
               >
@@ -292,18 +337,22 @@ export default function LoginPage() {
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
+              {errors.password && (
+                <p className="text-[12px] text-red-600 mt-1">{errors.password.message}</p>
+              )}
             </div>
 
-            <button 
+            <button
               type="submit"
-              className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm"
+              disabled={loading}
+              className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Log in
+              {loading ? "Logging in..." : "Log in"}
             </button>
 
             <div className="text-center pt-2">
               <Link
-                className="text-[#00afef] text-[13px] font-medium hover:underline" 
+                className="text-[#00afef] text-[13px] font-medium hover:underline"
                 href="/forget_password"
               >
                 Forgot password?
@@ -319,7 +368,7 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <Link 
+            <Link
               href="/register"
               className="w-full h-11 flex items-center justify-center border-2 border-[#00afef] text-[#00afef] font-bold rounded-lg hover:bg-[#e0f6fe] transition-colors"
             >
@@ -328,9 +377,9 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-16 flex justify-center opacity-30">
-            <img 
-              alt="Footer Logo" 
-              className="w-5 h-5 grayscale" 
+            <img
+              alt="Footer Logo"
+              className="w-5 h-5 grayscale"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3o0xkQHHA3nRWqaiDY65-LbmdhjpzFBWVBVtE0ipG96r1ZUww0nOmA0DtLVnUsZwxChia8uESSmAgKTPqf31qEcL4OezfxlN0YzxMv5FyHCPYWBSul0bxzL1YY8dsUDiEobuEjMcipdHzc1RbFjRChTLdqayDnLa3NCkq67mWbOrB8wHZc_XXCUXnHvdh65Vjb65NQ9xs-JaAtTC56JHt2RDPYo9fD-cv5XqR-MPdPuc8gWaQE8FBOQl49nXfVcwuhsT9_wPr9bQ "
             />
           </div>
