@@ -106,9 +106,6 @@ export default function OnboardingPage() {
   const handleContinue = async () => {
     try {
       await submitInterests([...selectedInterests]);
-
-      // Redirect after successful save
-      router.push("/");
     } catch (error) {
       console.error(error);
       alert("Failed to save interests.");

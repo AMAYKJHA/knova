@@ -34,6 +34,8 @@ async def refresh_user_session(response: Response, db: AsyncSession, refresh_tok
             "id": str(user.id),
             "email": user.email,
             "username": user.username,
+            "avatar_url": user.avatar_url,
+            "onboarding_completed": user.onboarding_completed,
         },
     }
 
@@ -67,6 +69,8 @@ async def register_user(response: Response, db: AsyncSession, body: RegisterRequ
             "id": str(user.id),
             "email": user.email,
             "username": user.username,
+            "avatar_url": user.avatar_url,
+            "onboarding_completed": user.onboarding_completed,
         },
     }
 
@@ -94,5 +98,7 @@ async def login_user(response: Response, db: AsyncSession, body: LoginRequest) -
             "id": str(user.id),
             "email": user.email,
             "username": user.username,
+            "avatar_url": user.avatar_url,
+            "onboarding_completed": user.onboarding_completed,
         },
     }

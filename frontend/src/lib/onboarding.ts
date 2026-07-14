@@ -9,7 +9,7 @@ import {
 export const saveInterests = async (
   data: OnboardingRequest
 ): Promise<OnboardingResponse> => {
-  return api<OnboardingResponse>("/users/interests", {
+  return api<OnboardingResponse>("/api/v1/onboarding/interests", {
     method: "POST",
     body: JSON.stringify(data),
   });

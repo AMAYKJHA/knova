@@ -64,7 +64,6 @@ export default function RegisterPage() {
         username: data.name,
         password: data.password,
       });
-      router.push("/");
     } catch {
       // error is already captured by useAuth and rendered below
     }

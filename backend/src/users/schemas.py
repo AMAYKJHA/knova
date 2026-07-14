@@ -7,6 +7,7 @@ class UserProfileResponse(BaseModel):
     email: EmailStr
     avatar_url: str | None = None
     bio: str | None = None
+    onboarding_completed: bool = False
     
     # Creator details (defaults if not creator)
     headline: str | None = None

@@ -59,7 +59,6 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data);
-      router.push("/");
     } catch {
       // error is already captured by useAuth and rendered below
     }

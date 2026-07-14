@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.deps import get_db, is_authenticated
+from src.db.models import User
 
 from .schemas import (
     OnboardingRequest,
@@ -6,7 +12,6 @@ from .schemas import (
 )
 
 from .service import save_user_interests
-from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
@@ -15,12 +20,20 @@ router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
     "/interests",
     response_model=OnboardingResponse,
 )
-def save_interests(
+async def save_interests(
     request: OnboardingRequest,
-    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    token_payload: dict = Depends(is_authenticated),
 ):
-    save_user_interests(
-        current_user,
+    user_id = uuid.UUID(token_payload["sub"])
+    user = await db.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    await save_user_interests(
+        db,
+        user,
         request.interests,
     )
 
