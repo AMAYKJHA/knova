@@ -73,6 +73,7 @@ async def get_user_profile(db: AsyncSession, username: str) -> dict:
         "email": user.email,
         "avatar_url": user.avatar_url,
         "bio": user.bio,
+        "onboarding_completed": user.onboarding_completed,
         "headline": headline,
         "credentials": credentials,
         "primary_topics": primary_topics,

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { Grid, BarChart2, ArrowUp, X } from 'lucide-react';
 import Image from 'next/image';

@@ -15,6 +15,8 @@ interface AuthContextType {
     refreshUser: () => Promise<void>;
 }
 
+const ONBOARDING_ROUTE = "/onboarding";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const PUBLIC_ROUTES = ["/login", "/register", "/about", "/help", "/contact"];
@@ -47,7 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!user && !isPublicRoute) {
                 router.push("/login");
             } else if (user && (pathname === "/login" || pathname === "/register")) {
-                router.push("/");
+                router.push(user.onboarding_completed ? "/" : ONBOARDING_ROUTE);
+            } else if (user && !user.onboarding_completed && pathname !== ONBOARDING_ROUTE && !pathname.startsWith("/api")) {
+                router.push(ONBOARDING_ROUTE);
             }
         }
     }, [user, loading, pathname, router]);

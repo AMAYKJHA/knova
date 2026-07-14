@@ -14,6 +14,7 @@ export interface AuthUser {
     email: string;
     username: string;
     avatar_url: string | null;
+    onboarding_completed: boolean;
 }
 
 export interface AuthResponse {
