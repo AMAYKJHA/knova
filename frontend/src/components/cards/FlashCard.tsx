@@ -8,6 +8,7 @@ interface CardProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
   author?: string;
   time?: string;
+  category?: string;
   question?: string;
   answer?: string;
   upvotes?: number | string;

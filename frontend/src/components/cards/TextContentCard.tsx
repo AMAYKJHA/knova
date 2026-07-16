@@ -7,6 +7,7 @@ interface TextProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
   author?: string;
   time?: string;
+  category?: string;
   title?: string;
   content?: string;
   upvotes?: number | string;

@@ -9,6 +9,7 @@ interface McqProps {
   variant?: 'feed' | 'reel' | 'explore' | 'profile';
   author?: string;
   time?: string;
+  category?: string;
   question?: string;
   options?: string[];
   correctIndex?: number;
