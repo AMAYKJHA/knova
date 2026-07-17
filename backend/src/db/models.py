@@ -37,10 +37,13 @@ class OAuthProvider(str, enum.Enum):
 
 class ContentType(str, enum.Enum):
     """Kind of educational unit a Post carries. Encoded as a ranker feature
-    (mirrors knova_type_encoder.pkl); payload rows live in the mcqs/flashcards tables."""
+    (mirrors knova_type_encoder.pkl); payload rows live in the mcqs/flashcards tables.
+    The ML data's `text_content` label collapses to TEXT at seed time; `short_note`
+    is kept distinct to preserve content_type_enc parity with training."""
     TEXT = "text"
     MCQ = "mcq"
     FLASHCARD = "flashcard"
+    SHORT_NOTE = "short_note"
 
 
 class InteractionSurface(str, enum.Enum):
@@ -115,7 +118,11 @@ class CreatorProfile(Base):
  
     id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
- 
+    # Integer bridge to the ML artifacts (creator_id in the content/follows/
+    # interactions CSVs). Lets the seeder resolve follows/interactions directly
+    # instead of hopping through User.ext_id. Organic creators leave it NULL.
+    ext_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)
+
     headline: Mapped[str | None] = mapped_column(String(150))
     credentials: Mapped[str | None] = mapped_column(Text)  # e.g. "MSc Physics, 5yr teaching"
     primary_topics: Mapped[list[str] | None] = mapped_column(JSONB)  # ["physics", "calculus"]
@@ -164,6 +171,9 @@ class UserTopicInterest(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     topic_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), index=True)
     affinity_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # origin of the affinity: "onboarding" (explicit) vs implicit signals
+    # (mirrors the `source` column in knova_interests.csv)
+    source: Mapped[str | None] = mapped_column(String(30), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
  
     user: Mapped["User"] = relationship(back_populates="interest_topics")
@@ -186,7 +196,7 @@ class Post(Base):
         Enum(ContentType), default=ContentType.TEXT, index=True
     )  # text | mcq | flashcard
 
-    title: Mapped[str | None] = mapped_column(String(200), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     word_count: Mapped[int] = mapped_column(Integer, default=0)
     est_read_seconds: Mapped[int] = mapped_column(Integer, default=0)
