@@ -30,7 +30,7 @@ export interface Post {
   id: string;
   creator_id: string;
   topic_id?: string;
-  content_type: 'text' | 'mcq' | 'flashcard';
+  content_type: 'text' | 'mcq' | 'flashcard' | 'short_note';
   title?: string;
   body: string;
   difficulty: number;
@@ -100,7 +100,7 @@ export interface SaveResponse {
 export interface CreatePostRequest {
   creator_id: string;
   topic_id?: string;
-  content_type: 'text' | 'mcq' | 'flashcard';
+  content_type: 'text' | 'mcq' | 'flashcard' | 'short_note';
   title?: string;
   body: string;
   difficulty?: number;
