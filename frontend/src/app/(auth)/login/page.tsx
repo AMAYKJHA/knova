@@ -16,8 +16,14 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  // Define type for array of HTMLDivElement or null
   const animRefs = useRef<(HTMLDivElement | HTMLFormElement | HTMLButtonElement | HTMLElement | null)[]>([]);
+
+  // --- Forgot password modal state (shared: mobile + desktop) ---
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStep, setModalStep] = useState<1 | 2 | 3>(1);
+  const [newPassVisible, setNewPassVisible] = useState(false);
+  const [confirmPassVisible, setConfirmPassVisible] = useState(false);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const {
     register,
@@ -28,20 +34,15 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
+    const checkScreenSize = () => setIsMobile(window.innerWidth < 768);
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
-
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
   useEffect(() => {
     animRefs.current.forEach((el, i) => {
       if (!el) return;
-      // Cast to HTMLElement to access style safely if strict types differ
       const htmlEl = el as HTMLElement;
       htmlEl.style.opacity = '0';
       htmlEl.style.transform = 'translateY(10px)';
@@ -64,28 +65,281 @@ export default function LoginPage() {
     }
   };
 
+  const openModal = () => {
+    setModalStep(1);
+    setModalOpen(true);
+  };
+  const closeModal = () => setModalOpen(false);
+
+  const handleOtpInput = (index: number, value: string) => {
+    if (value && index < otpRefs.current.length - 1) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !(e.target as HTMLInputElement).value && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // ===== MOBILE: bottom-sheet forgot-password modal =====
+  const MobileForgotPasswordModal = () => {
+    if (!modalOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center transition-opacity duration-300">
+        <div className="bg-white w-full max-w-[400px] rounded-t-[20px] p-6 flex flex-col gap-6 animate-slide-up">
+          <div className="flex justify-between items-center">
+            <h2 className="text-[20px] font-semibold text-[#1b1c1c]">
+              {modalStep === 1 ? 'Reset Password' : modalStep === 2 ? 'Verify Email' : 'New Password'}
+            </h2>
+            <button className="text-[#594137] p-2" onClick={closeModal}>
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          {/* Step 1: Email Input */}
+          {modalStep === 1 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[15px] text-[#594137]">Enter your email address to receive a verification code.</p>
+              <input
+                type="email"
+                placeholder="Email address"
+                className="w-full h-12 px-4 rounded-lg bg-white border border-[#d9d9d9] outline-none focus:ring-2 focus:ring-[#2cbcfd] focus:border-[#00658c] transition-all text-[15px]"
+              />
+              <button
+                className="w-full h-[50px] rounded-lg text-white font-semibold text-[16px] bg-[#f36710] hover:opacity-90 active:scale-[0.98] transition-all"
+                onClick={() => setModalStep(2)}
+              >
+                Send Code
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Verify Code */}
+          {modalStep === 2 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[15px] text-[#594137]">Enter the 6-digit code sent to your email.</p>
+              <div className="flex justify-between gap-2">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpRefs.current[i] = el; }}
+                    maxLength={1}
+                    pattern="\d*"
+                    type="text"
+                    className="w-12 h-12 text-center border border-[#d9d9d9] rounded-lg text-[20px] font-semibold focus:ring-2 focus:ring-[#2cbcfd] outline-none"
+                    onChange={(e) => handleOtpInput(i, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                  />
+                ))}
+              </div>
+              <button
+                className="w-full h-[50px] rounded-lg text-white font-semibold text-[16px] bg-[#00afef] hover:opacity-90 active:scale-[0.98] transition-all"
+                onClick={() => setModalStep(3)}
+              >
+                Verify
+              </button>
+              <button
+                className="text-center text-[14px] font-semibold text-[#00afef] mt-2"
+                onClick={() => setModalStep(1)}
+              >
+                Resend Code
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: New Password */}
+          {modalStep === 3 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[15px] text-[#594137]">Create a new password for your account.</p>
+              <div className="flex flex-col gap-4">
+                <div className="relative">
+                  <input
+                    type={newPassVisible ? 'text' : 'password'}
+                    placeholder="New Password"
+                    className="w-full h-12 px-4 pr-12 rounded-lg bg-white border border-[#d9d9d9] outline-none focus:ring-2 focus:ring-[#2cbcfd] focus:border-[#00658c] transition-all text-[15px]"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#594137] flex items-center justify-center"
+                    onClick={() => setNewPassVisible(!newPassVisible)}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {newPassVisible ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={confirmPassVisible ? 'text' : 'password'}
+                    placeholder="Confirm New Password"
+                    className="w-full h-12 px-4 pr-12 rounded-lg bg-white border border-[#d9d9d9] outline-none focus:ring-2 focus:ring-[#2cbcfd] focus:border-[#00658c] transition-all text-[15px]"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#594137] flex items-center justify-center"
+                    onClick={() => setConfirmPassVisible(!confirmPassVisible)}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {confirmPassVisible ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+              <button
+                className="w-full h-[50px] rounded-lg text-white font-semibold text-[16px] bg-[#f36710] hover:opacity-90 active:scale-[0.98] transition-all"
+                onClick={closeModal}
+              >
+                Save Password
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ===== DESKTOP: centered forgot-password modal =====
+  const DesktopForgotPasswordModal = () => {
+    if (!modalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
+        <div
+          className="relative w-full max-w-md flex-shrink-0 bg-white rounded-xl shadow-xl overflow-hidden"
+          style={{ minWidth: '400px' }}
+        >
+          <div className="p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-[22px] font-semibold text-[#1a1a1a]">
+                {modalStep === 1 ? 'Reset Password' : modalStep === 2 ? 'Verify Email' : 'Set New Password'}
+              </h3>
+              <button className="text-[#5c5c5c] hover:text-[#1a1a1a]" onClick={closeModal}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Step 1: Request Reset */}
+            {modalStep === 1 && (
+              <div className="space-y-4">
+                <p className="text-[14px] text-[#5c5c5c]">Enter your email or username and we&apos;ll send you a code to reset your password.</p>
+                <input
+                  className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
+                  placeholder="Email or username"
+                  type="text"
+                />
+                <button
+                  className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm"
+                  onClick={() => setModalStep(2)}
+                >
+                  Send Code
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Verify Email */}
+            {modalStep === 2 && (
+              <div className="space-y-4">
+                <p className="text-[14px] text-[#5c5c5c]">We&apos;ve sent a 6-digit code to your email. Please enter it below.</p>
+                <div className="flex justify-between gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <input
+                      key={i}
+                      ref={(el) => { otpRefs.current[i] = el; }}
+                      maxLength={1}
+                      placeholder="-"
+                      type="text"
+                      className="w-12 h-12 text-center border border-[#d9d9d9] rounded-lg focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none text-lg font-bold"
+                      onChange={(e) => handleOtpInput(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                    />
+                  ))}
+                </div>
+                <button
+                  className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm"
+                  onClick={() => setModalStep(3)}
+                >
+                  Verify
+                </button>
+                <div className="text-center">
+                  <button
+                    className="text-[#00afef] text-[13px] font-medium hover:underline"
+                    onClick={() => setModalStep(1)}
+                  >
+                    Resend code
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Set New Password */}
+            {modalStep === 3 && (
+              <div className="space-y-4">
+                <p className="text-[14px] text-[#5c5c5c]">Please enter your new password below.</p>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
+                      placeholder="New Password"
+                      type={newPassVisible ? 'text' : 'password'}
+                    />
+                    <button
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5c5c5c]"
+                      type="button"
+                      onClick={() => setNewPassVisible(!newPassVisible)}
+                    >
+                      <span className="material-symbols-outlined">
+                        {newPassVisible ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
+                      placeholder="Confirm New Password"
+                      type={confirmPassVisible ? 'text' : 'password'}
+                    />
+                    <button
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5c5c5c]"
+                      type="button"
+                      onClick={() => setConfirmPassVisible(!confirmPassVisible)}
+                    >
+                      <span className="material-symbols-outlined">
+                        {confirmPassVisible ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                <button
+                  className="w-full h-11 bg-[#f36710] text-white font-bold rounded-lg hover:bg-[#d4580e] transition-colors shadow-sm"
+                  onClick={closeModal}
+                >
+                  Save Password
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Mobile View
   if (isMobile) {
     return (
-      <div className="auth-page flex flex-col min-h-screen items-center text-center">
-        <main className="auth-container flex flex-col items-center px-5 pt-12 pb-8 flex-grow">
-          {/* Brand Header */}
+      <div className="min-h-screen flex flex-col items-center bg-[#f5f5f5]">
+        <main className="w-full max-w-[400px] flex flex-col items-center px-5 pt-10">
+          {/* Logo Section */}
           <header ref={ref(0)} className="flex flex-col items-center mb-10">
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWiSc93XM13_6nr4A9T9WbJYlLy2aVPdqx96zvMKRVRMO-0rNq7q-_FoRTzim2jaGDbHATA1-xbKMXE7wPn3ioCheB4M_9QJQRz3g4D1XjhVjS-ElBEOb9iwiHGMqCdoje4AFkjwFIBCwPLZLJdFQtN1E8Rurd2fkUhARQiu3xLZ4tXcRFEqVqNDRpbe5aS7k1tqsLIi2oKB0agSW6253G7cmNjHfxghYCL5S5UQ5wMgVsUKac1U3XAVkAV3rF3lP9eqhwQXMjUrk "
-              alt="Knova Sparkle Logo"
-              className="auth-logo mb-3"
+              src="/logos/KnovaWordmark.png"
+              alt="Knova Logo"
+              className="w-[180px] object-contain"
             />
-            <h1 className="font-extrabold text-[28px] leading-none flex items-center">
-              <span className="text-[#f36710]">K</span>
-              <span className="text-[#00afef]">nova</span>
-            </h1>
-            <p className="text-[#5c5c5c] text-[13px] mt-3 tracking-wide">
-              Learn. Create. Grow.
-            </p>
           </header>
 
-          {/* Form */}
+          {/* Form Section */}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="w-full flex flex-col gap-5">
             {error && (
               <div ref={ref(1)} className="text-left text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -93,11 +347,11 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div ref={ref(1)} className="form-group text-left">
+            <div ref={ref(1)} className="relative w-full">
               <input
-                type="email"
-                placeholder="Email address"
-                className="form-input"
+                type="text"
+                placeholder="Email or username"
+                className="w-full h-12 px-4 rounded-lg bg-white border border-[#d9d9d9] outline-none focus:ring-2 focus:ring-[#2cbcfd] focus:border-[#00658c] transition-all text-[15px]"
                 {...register("email")}
               />
               {errors.email && (
@@ -105,16 +359,16 @@ export default function LoginPage() {
               )}
             </div>
 
-            <div ref={ref(2)} className="form-group text-left">
+            <div ref={ref(2)} className="relative w-full">
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
-                className="form-input password-input"
+                className="w-full h-12 px-4 pr-12 rounded-lg bg-white border border-[#d9d9d9] outline-none focus:ring-2 focus:ring-[#2cbcfd] focus:border-[#00658c] transition-all text-[15px]"
                 {...register("password")}
               />
               <button
                 type="button"
-                className="password-toggle"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#594137] flex items-center justify-center"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 <span className="material-symbols-outlined text-[20px]">
@@ -126,51 +380,72 @@ export default function LoginPage() {
               )}
             </div>
 
-            <button ref={ref(3)} type="submit" disabled={loading} className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed">
+            <button
+              ref={ref(3)}
+              type="submit"
+              disabled={loading}
+              className="w-full h-[50px] rounded-lg text-white font-semibold text-[16px] bg-[#f36710] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               {loading ? "Logging in..." : "Log In"}
             </button>
 
             <div ref={ref(4)} className="text-center -mt-1.5">
-              <Link href="/forget_password" className="auth-forgot-link">
+              <button
+                type="button"
+                onClick={openModal}
+                className="text-[#00afef] text-[14px] font-semibold hover:underline underline-offset-4"
+              >
                 Forgot password?
-              </Link>
+              </button>
             </div>
 
-            <div ref={ref(5)} className="auth-divider">
-              <div className="auth-divider-line" />
-              <span className="auth-divider-text">or</span>
-              <div className="auth-divider-line" />
+            <div ref={ref(5)} className="flex items-center gap-4 my-1">
+              <div className="flex-1 h-px bg-[#d9d9d9]" />
+              <span className="text-[#5c5c5c] text-[13px] font-medium uppercase tracking-wider">or</span>
+              <div className="flex-1 h-px bg-[#d9d9d9]" />
             </div>
 
             <Link href="/register" className="block">
-              <button ref={ref(6)} type="button" className="btn-secondary">
+              <button
+                ref={ref(6)}
+                type="button"
+                className="w-full h-[50px] rounded-lg text-white font-semibold text-[16px] bg-[#00afef] hover:opacity-90 active:scale-[0.98] transition-all"
+              >
                 Create New Account
               </button>
             </Link>
           </form>
         </main>
 
-        {/* Footer */}
-        <footer ref={ref(7)} className="w-full mt-auto pb-10 flex flex-col items-center gap-3.5">
-          <nav className="auth-footer-nav">
-            <Link href="/about">About</Link>
+        {/* Footer Section */}
+        <footer ref={ref(7)} className="w-full max-w-[400px] mt-12 pb-10 flex flex-col items-center gap-3.5">
+          <nav className="flex gap-4">
+            <Link href="/about" className="text-[#5c5c5c] text-[12px] font-medium hover:text-[#1b1c1c] transition-colors">About</Link>
             <span className="text-[#d9d9d9]">•</span>
-            <Link href="/help">Help</Link>
+            <Link href="/help" className="text-[#5c5c5c] text-[12px] font-medium hover:text-[#1b1c1c] transition-colors">Help</Link>
             <span className="text-[#d9d9d9]">•</span>
-            <Link href="/contact">Contact</Link>
+            <Link href="/contact" className="text-[#5c5c5c] text-[12px] font-medium hover:text-[#1b1c1c] transition-colors">Contact</Link>
           </nav>
 
-          <div className="auth-footer-copy">
+          <div className="flex items-center gap-1.5 opacity-80">
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWiSc93XM13_6nr4A9T9WbJYlLy2aVPdqx96zvMKRVRMO-0rNq7q-_FoRTzim2jaGDbHATA1-xbKMXE7wPn3ioCheB4M_9QJQRz3g4D1XjhVjS-ElBEOb9iwiHGMqCdoje4AFkjwFIBCwPLZLJdFQtN1E8Rurd2fkUhARQiu3xLZ4tXcRFEqVqNDRpbe5aS7k1tqsLIi2oKB0agSW6253G7cmNjHfxghYCL5S5UQ5wMgVsUKac1U3XAVkAV3rF3lP9eqhwQXMjUrk "
+              src="/logos/Knova.png"
               alt="Knova small icon"
-              className="auth-logo-small"
+              className="h-[14px] object-contain"
             />
-            <span className="text-[#5c5c5c] text-[11px]">
-              Knova © 2025
-            </span>
+            <span className="text-[#5c5c5c] text-[11px]">Knova © 2025</span>
           </div>
         </footer>
+
+        <MobileForgotPasswordModal />
+
+        <style jsx>{`
+          @keyframes slide-up {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+          .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        `}</style>
       </div>
     );
   }
@@ -182,15 +457,13 @@ export default function LoginPage() {
       <div className="relative flex flex-col p-8 lg:p-[40px] justify-between overflow-hidden">
         {/* Top Logo */}
         <div className="flex items-center gap-2 z-10">
-          <img
-            alt="Knova Logo"
-            className="w-8 h-8 object-contain"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3o0xkQHHA3nRWqaiDY65-LbmdhjpzFBWVBVtE0ipG96r1ZUww0nOmA0DtLVnUsZwxChia8uESSmAgKTPqf31qEcL4OezfxlN0YzxMv5FyHCPYWBSul0bxzL1YY8dsUDiEobuEjMcipdHzc1RbFjRChTLdqayDnLa3NCkq67mWbOrB8wHZc_XXCUXnHvdh65Vjb65NQ9xs-JaAtTC56JHt2RDPYo9fD-cv5XqR-MPdPuc8gWaQE8FBOQl49nXfVcwuhsT9_wPr9bQ "
-          />
-          <h1 className="text-headline-md font-extrabold flex">
-            <span className="text-[#f36710]">K</span>
-            <span className="text-[#00afef]">nova</span>
-          </h1>
+          <div className="w-32 h-32 flex items-center justify-center">
+            <img
+              alt="Knova Wordmark"
+              className="w-full h-full object-contain"
+              src="/logos/KnovaWordmark.png"
+            />
+          </div>
         </div>
 
         {/* Central Collage Area */}
@@ -237,7 +510,7 @@ export default function LoginPage() {
                 <img
                   className="w-full h-full object-cover rounded-lg"
                   alt="Atom illustration"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQOdWe6DH8nv_ecUl--9gLGcig5hByhN1lhGBBrpH2mA3HpBJmGCjeJOG0mGV1mTTOx3tdcB1iq7moDaNs1wvfeMeVemUFm6Dog_oy__TxbFqvoMLBuqzHLNcuTlrTitwWZK9a2qjNdmpitVdTx9a86tFLwo4CgRc9DBHHcMXh8ulgTNA1Hm2mrf-7cPf6bXxsdzpUKP_m8NeK85lMMDSPDd-9Kr0p7iGqm91SutasLIB-OoAfsHFexyPpyBJ8aDY9Uc3Z5-IK24c "
+                  src="/images/photosynthesis.png"
                 />
               </div>
               <p className="text-body-md font-bold text-center">Photosynthesis Process</p>
@@ -280,8 +553,8 @@ export default function LoginPage() {
               every day.
             </p>
           </div>
-          <p className="text-body-lg text-[#5c5c5c] max-w-md min-w-[300px]">
-            Create FlashCards, MCQs, and text content. Learn your way.
+          <p className="text-body-lg text-[#5c5c5c]">
+            Create flashcards, MCQs, and text content. Learn your way.
           </p>
         </div>
       </div>
@@ -293,6 +566,13 @@ export default function LoginPage() {
       <div className="flex flex-col items-center justify-center p-8 lg:p-[40px] bg-white">
         <div className="w-full max-w-[396px]">
           <div className="mb-8 text-center lg:text-left">
+            <div className="flex justify-center lg:justify-start mb-6">
+              <img
+                alt="Knova Logo"
+                className="h-16 w-auto object-contain"
+                src="/logos/Knova.png"
+              />
+            </div>
             <h2 className="text-[22px] font-semibold text-[#1a1a1a] mb-1">
               Log in to Knova
             </h2>
@@ -311,8 +591,8 @@ export default function LoginPage() {
             <div>
               <input
                 className="w-full h-12 px-4 rounded-lg border border-[#d9d9d9] focus:border-[#00afef] focus:ring-2 focus:ring-[#00afef]/20 outline-none transition-all text-body-md"
-                placeholder="Email address"
-                type="email"
+                placeholder="Email or username"
+                type="text"
                 {...register("email")}
               />
               {errors.email && (
@@ -349,13 +629,15 @@ export default function LoginPage() {
               {loading ? "Logging in..." : "Log in"}
             </button>
 
+            {/* Forgot password: BUTTON that opens the desktop modal (not a Link) */}
             <div className="text-center pt-2">
-              <Link
+              <button
+                type="button"
+                onClick={openModal}
                 className="text-[#00afef] text-[13px] font-medium hover:underline"
-                href="/forget_password"
               >
                 Forgot password?
-              </Link>
+              </button>
             </div>
 
             <div className="relative py-4 flex items-center justify-center">
@@ -379,11 +661,14 @@ export default function LoginPage() {
             <img
               alt="Footer Logo"
               className="w-5 h-5 grayscale"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3o0xkQHHA3nRWqaiDY65-LbmdhjpzFBWVBVtE0ipG96r1ZUww0nOmA0DtLVnUsZwxChia8uESSmAgKTPqf31qEcL4OezfxlN0YzxMv5FyHCPYWBSul0bxzL1YY8dsUDiEobuEjMcipdHzc1RbFjRChTLdqayDnLa3NCkq67mWbOrB8wHZc_XXCUXnHvdh65Vjb65NQ9xs-JaAtTC56JHt2RDPYo9fD-cv5XqR-MPdPuc8gWaQE8FBOQl49nXfVcwuhsT9_wPr9bQ "
+              src="/logos/Knova.png"
             />
           </div>
         </div>
       </div>
+
+      {/* Desktop forgot-password modal — rendered here so it overlays the whole page */}
+      <DesktopForgotPasswordModal />
     </main>
   );
 }
