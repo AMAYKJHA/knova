@@ -227,7 +227,7 @@ export default function ContactUs() {
         <div className="max-w-[1280px] w-full mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-4">
             <Image
-              src="/Knova.png"
+              src="/logos/Knova.png"
               alt="Knova Logo Small"
               width={32}
               height={32}

@@ -90,11 +90,9 @@ export interface VoteResponse {
 }
 
 export interface SaveResponse {
-  id: string;
-  user_id: string;
   post_id: string;
-  created_at: string;
   saved: boolean;
+  save_count: number;
 }
 
 export interface CreatePostRequest {
