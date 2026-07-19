@@ -51,7 +51,7 @@ export default function Navbar() {
       <div className="flex items-center flex-1 gap-10">
         <div className="flex items-center gap-2">
           <Image
-            src="/KnovaWordmark.png"
+            src="/logos/KnovaWordmark.png"
             alt="Knova"
             width={64}
             height={64}
