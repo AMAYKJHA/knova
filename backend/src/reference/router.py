@@ -10,7 +10,7 @@ from .schemas import TopicCreateRequest
 router = APIRouter()
 
 @router.get("/topics")
-async def get_topics(limit: int = 10, db: AsyncSession = Depends(get_db)):
+async def get_topics(limit: int | None = None, db: AsyncSession = Depends(get_db)):
     return await ref_service.list_topics(db, limit)
 
 @router.post("/topics")

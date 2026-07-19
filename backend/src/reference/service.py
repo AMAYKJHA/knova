@@ -8,17 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.models import Topic
 from .schemas import TopicResponse
 
-async def list_topics(db: AsyncSession, limit: int = 10):
-    result = await db.execute(
-        select(Topic)
-        .limit(limit)
-    )
-    topics = result.scalars().all()
-    total = len(topics)
-    
+async def list_topics(db: AsyncSession, limit: int | None = None):
+    # limit=None returns the full vocabulary (used by the onboarding picker so its
+    # options always match the DB/model topic set); a limit caps it when provided.
+    stmt = select(Topic).order_by(Topic.name)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+
+    topics = (await db.execute(stmt)).scalars().all()
+
     return {
         "topics": [TopicResponse.model_validate(t) for t in topics],
-        "total": total
+        "total": len(topics),
     }
     
 async def create_topic(name: str, parent_id: UUID | None, db: AsyncSession):
