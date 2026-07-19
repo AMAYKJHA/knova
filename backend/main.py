@@ -1,17 +1,29 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import get_settings
 from core.logging import setup_logging
+from ml.loader import models
 
 setting = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Warm-load the recommender artifacts so the first /feed request isn't slow.
+    models.load()
+    yield
+
 
 app = FastAPI(
     title = "Knova",
     debug = setting.DEBUG,
     docs_url="/api/v1/docs",
-    redoc_url="/api/v1/redoc"
+    redoc_url="/api/v1/redoc",
+    lifespan=lifespan,
 )
 setup_logging()
 
@@ -58,10 +70,14 @@ from src.onboarding.route import router as onboarding_router
 from src.reference.router import router as ref_router
 from src.users.router import router as users_router
 from src.posts.router import router as posts_router
+from src.recommendation.router import router as feed_router
 
 base_router.include_router(auth_router, prefix="/auth")
 base_router.include_router(onboarding_router)
 base_router.include_router(ref_router, prefix="/reference")
 base_router.include_router(users_router, prefix="/users")
+# Feed router must be registered before the posts router so /posts/feed matches
+# before the /posts/{post_id} catch-all.
+base_router.include_router(feed_router, prefix="/posts")
 base_router.include_router(posts_router, prefix="/posts")
 app.include_router(base_router)
