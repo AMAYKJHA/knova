@@ -32,6 +32,16 @@ export class PostService {
     return api<PostListResponse>(`/api/v1/posts?${query.toString()}`);
   }
 
+  // Personalized recommendation feed (interest/CF/Thompson/creator retrieval +
+  // LightGBM ranking). Requires an authenticated session. Paging is repeated
+  // requests: each call re-runs retrieval excluding already-seen posts.
+  async getFeed(params: { size?: number } = {}): Promise<PostListResponse> {
+    const query = new URLSearchParams();
+    if (params.size !== undefined) query.append("size", String(params.size));
+    const qs = query.toString();
+    return api<PostListResponse>(`/api/v1/posts/feed${qs ? `?${qs}` : ""}`);
+  }
+
   async getPost(postId: string): Promise<Post> {
     return api<Post>(`/api/v1/posts/${postId}`);
   }

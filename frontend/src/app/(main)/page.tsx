@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import CreatorCard from '@/components/cards/CreatorCard';
@@ -34,6 +34,42 @@ export default function HomePage() {
 
   const postService = new PostService();
 
+  // Ids already shown, so "load more" (which re-runs the feed) never repeats a post.
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  const mapPostToFeedItem = useCallback((post: any): FeedItem => {
+    const baseItem: FeedItem = {
+      id: post.id,
+      type: post.content_type,
+      author: post.creator?.user?.username || 'Unknown',
+      authorInitial: post.creator?.user?.username?.slice(0, 2).toUpperCase() || 'U',
+      authorBg: 'bg-orange-500 text-white',
+      time: post.published_at ? new Date(post.published_at).toLocaleDateString() : 'Just now',
+      category: post.tags?.[0] || 'General',
+      upvotes: post.upvote_count || 0,
+      downvotes: post.downvote_count || 0,
+      comments: post.comment_count || 0,
+      userVote: post.user_vote,
+      userSaved: post.user_saved,
+      isOwner: user?.id === post.creator?.user?.id,
+    };
+
+    if (post.content_type === 'flashcard') {
+      return { ...baseItem, answerBg: 'bg-[#f36710]', question: post.flashcard?.front, answer: post.flashcard?.back };
+    } else if (post.content_type === 'text') {
+      return { ...baseItem, title: post.title || 'Untitled', content: post.body };
+    } else if (post.content_type === 'mcq') {
+      return {
+        ...baseItem,
+        question: post.mcq?.question,
+        options: post.mcq?.options,
+        correctIndex: post.mcq?.correct_index,
+        explanation: post.mcq?.explanation,
+      };
+    }
+    return baseItem;
+  }, [user]);
+
   const loadFeed = useCallback(async (pageNum: number, append: boolean = false) => {
     try {
       if (pageNum === 1) {
@@ -42,64 +78,24 @@ export default function HomePage() {
         setIsLoadingMore(true);
       }
 
-      // Try to fetch from API
-      const response = await postService.getPosts({
-        page: pageNum,
-        size: 10,
-        sort_by: 'recent',
-      });
+      // Personalized recommendation feed. Paging re-runs retrieval, so we filter
+      // out any post already shown and stop when a batch yields nothing new.
+      const response = await postService.getFeed({ size: 15 });
+      const mapped = response.items.map(mapPostToFeedItem);
 
-      // Transform API response to FeedItem format
-      const items: FeedItem[] = response.items.map((post: any) => {
-        const baseItem: FeedItem = {
-          id: post.id,
-          type: post.content_type,
-          author: post.creator?.user?.username || 'Unknown',
-          authorInitial: post.creator?.user?.username?.slice(0, 2).toUpperCase() || 'U',
-          authorBg: 'bg-orange-500 text-white',
-          time: post.published_at ? new Date(post.published_at).toLocaleDateString() : 'Just now',
-          category: post.tags?.[0] || 'General',
-          upvotes: post.upvote_count || 0,
-          downvotes: post.downvote_count || 0,
-          comments: post.comment_count || 0,
-          userVote: post.user_vote,
-          userSaved: post.user_saved,
-          isOwner: user?.id === post.creator?.user?.id,
-        };
-
-        if (post.content_type === 'flashcard') {
-          return {
-            ...baseItem,
-            answerBg: 'bg-[#f36710]',
-            question: post.flashcard?.front,
-            answer: post.flashcard?.back,
-          };
-        } else if (post.content_type === 'text') {
-          return {
-            ...baseItem,
-            title: post.title || 'Untitled',
-            content: post.body,
-          };
-        } else if (post.content_type === 'mcq') {
-          return {
-            ...baseItem,
-            question: post.mcq?.question,
-            options: post.mcq?.options,
-            correctIndex: post.mcq?.correct_index,
-            explanation: post.mcq?.explanation,
-          };
-        }
-        return baseItem;
-      });
-
-      if (append) {
-        setFeed(prev => [...prev, ...items]);
+      if (!append) {
+        seenIdsRef.current = new Set(mapped.map(it => String(it.id)));
+        setFeed(mapped);
+        setTotal(mapped.length);
+        setHasNext(mapped.length > 0);
       } else {
-        setFeed(items);
+        const fresh = mapped.filter(it => !seenIdsRef.current.has(String(it.id)));
+        fresh.forEach(it => seenIdsRef.current.add(String(it.id)));
+        setFeed(prev => [...prev, ...fresh]);
+        setTotal(prev => prev + fresh.length);
+        setHasNext(fresh.length > 0);
       }
 
-      setHasNext(response.has_next);
-      setTotal(response.total);
       setPage(pageNum);
       setUseMockData(false);
     } catch (error) {
@@ -121,7 +117,7 @@ export default function HomePage() {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [user]);
+  }, [mapPostToFeedItem]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
