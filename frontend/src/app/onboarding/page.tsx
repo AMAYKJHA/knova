@@ -1,80 +1,33 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  Search,
-  FlaskConical,
-  Cpu,
-  Palette,
-  TrendingUp,
-  Check
-} from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/hooks/useOnboarding";
-
-const CATEGORIES = [
-  {
-    id: 'science',
-    title: 'Science',
-    icon: FlaskConical,
-    iconColor: 'text-orange-600',
-    items: [
-      'Astrophysics',
-      'Neuroscience',
-      'Molecular Biology',
-      'Environmental Science',
-      'Organic Chemistry',
-    ],
-  },
-  {
-    id: 'technology',
-    title: 'Technology',
-    icon: Cpu,
-    iconColor: 'text-sky-600',
-    items: [
-      'Artificial Intelligence',
-      'Cybersecurity',
-      'Web Development',
-      'Data Science',
-      'Cloud Computing',
-      'Blockchain',
-    ],
-  },
-  {
-    id: 'arts',
-    title: 'Arts & Humanities',
-    icon: Palette,
-    iconColor: 'text-red-600',
-    items: [
-      'Modern Art',
-      'Philosophy',
-      'Creative Writing',
-      'Music Theory',
-      'History',
-    ],
-  },
-  {
-    id: 'business',
-    title: 'Business & Leadership',
-    icon: TrendingUp,
-    iconColor: 'text-blue-600',
-    items: [
-      'Entrepreneurship',
-      'Marketing Strategy',
-      'Finance',
-      'Public Speaking',
-    ],
-  },
-];
+import { getTopics, Topic } from "@/lib/reference";
 
 const REQUIRED_SELECTIONS = 5;
 
 export default function OnboardingPage() {
   const [selectedInterests, setSelectedInterests] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const router = useRouter();
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(true);
+  const [topicsError, setTopicsError] = useState<string | null>(null);
   const { loading, submitInterests } = useOnboarding();
+
+  // Load the real topic vocabulary from the backend. Selections are saved by name,
+  // so they must come from this list to resolve to a Topic row on the server.
+  useEffect(() => {
+    let active = true;
+    getTopics()
+      .then((t) => { if (active) setTopics(t); })
+      .catch((e) => {
+        if (active) setTopicsError(e instanceof Error ? e.message : "Failed to load topics");
+      })
+      .finally(() => { if (active) setTopicsLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) => {
@@ -91,17 +44,11 @@ export default function OnboardingPage() {
   const progress = Math.min((selectedInterests.size / REQUIRED_SELECTIONS) * 100, 100);
   const canContinue = selectedInterests.size >= REQUIRED_SELECTIONS;
 
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return CATEGORIES;
-    const lowerQuery = searchQuery.toLowerCase();
-
-    return CATEGORIES.map(category => ({
-      ...category,
-      items: category.items.filter(item =>
-        item.toLowerCase().includes(lowerQuery)
-      )
-    })).filter(category => category.items.length > 0);
-  }, [searchQuery]);
+  const filteredTopics = useMemo(() => {
+    if (!searchQuery.trim()) return topics;
+    const q = searchQuery.toLowerCase();
+    return topics.filter((t) => t.name.toLowerCase().includes(q));
+  }, [searchQuery, topics]);
 
   const handleContinue = async () => {
     try {
@@ -149,59 +96,62 @@ export default function OnboardingPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full pl-12 pr-4 py-4 bg-white border border-stone-200 rounded-2xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all text-base outline-none shadow-sm placeholder:text-stone-400"
-            placeholder="Search for topics (e.g. Quantum Physics, UX Design)"
+            placeholder="Search for topics (e.g. Machine Learning, UI/UX Design)"
           />
         </motion.div>
 
-        {/* Categories & Chips */}
-        <div className="space-y-12 md:space-y-16">
-          {filteredCategories.map((category, index) => (
-            <motion.section
-              key={category.id}
+        {/* Topic chips */}
+        <div className="space-y-8">
+          {topicsLoading && (
+            <div className="text-center py-12 text-stone-500">Loading topics…</div>
+          )}
+
+          {topicsError && !topicsLoading && (
+            <div className="text-center py-12 text-red-500">{topicsError}</div>
+          )}
+
+          {!topicsLoading && !topicsError && (
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + (index * 0.1) }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap gap-3"
             >
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 mb-6 flex items-center gap-2">
-                <category.icon className={`w-5 h-5 ${category.iconColor}`} />
-                {category.title}
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {category.items.map((item) => {
-                  const isSelected = selectedInterests.has(item);
-                  return (
-                    <button
-                      key={item}
-                      onClick={() => toggleInterest(item)}
-                      className={`
-                        relative group flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 border
-                        ${isSelected
-                          ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20 hover:bg-orange-600'
-                          : 'bg-stone-200/50 text-stone-700 border-transparent hover:border-sky-400 hover:bg-white hover:shadow-sm'
-                        }
-                      `}
-                    >
-                      <span>{item}</span>
-                      <AnimatePresence>
-                        {isSelected && (
-                          <motion.div
-                            initial={{ scale: 0, width: 0, opacity: 0 }}
-                            animate={{ scale: 1, width: 'auto', opacity: 1 }}
-                            exit={{ scale: 0, width: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden flex items-center"
-                          >
-                            <Check className="w-4 h-4 ml-1" strokeWidth={3} />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.section>
-          ))}
-          {filteredCategories.length === 0 && (
+              {filteredTopics.map((topic) => {
+                const isSelected = selectedInterests.has(topic.name);
+                return (
+                  <button
+                    key={topic.id}
+                    onClick={() => toggleInterest(topic.name)}
+                    className={`
+                      relative group flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 border
+                      ${isSelected
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20 hover:bg-orange-600'
+                        : 'bg-stone-200/50 text-stone-700 border-transparent hover:border-sky-400 hover:bg-white hover:shadow-sm'
+                      }
+                    `}
+                  >
+                    <span>{topic.name}</span>
+                    <AnimatePresence>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0, width: 0, opacity: 0 }}
+                          animate={{ scale: 1, width: 'auto', opacity: 1 }}
+                          exit={{ scale: 0, width: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden flex items-center"
+                        >
+                          <Check className="w-4 h-4 ml-1" strokeWidth={3} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {!topicsLoading && !topicsError && filteredTopics.length === 0 && (
             <div className="text-center py-12 text-stone-500">
               No topics found matching "{searchQuery}".
             </div>
@@ -233,9 +183,6 @@ export default function OnboardingPage() {
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto">
-            {/* <button className="px-6 py-3 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors hidden md:block">
-              Skip for now
-            </button> */}
             <button
               disabled={!canContinue || loading}
               onClick={handleContinue}
@@ -247,14 +194,9 @@ export default function OnboardingPage() {
                 }
               `}
             >
-              {loading?"Saving...": canContinue?"Continue to Feed": "Continue"}
+              {loading ? "Saving..." : canContinue ? "Continue to Feed" : "Continue"}
             </button>
           </div>
-
-          {/* Mobile skip button below continue if needed */}
-          {/* <button className="md:hidden text-sm font-medium text-stone-500 hover:text-stone-800 pb-2">
-             Skip for now
-          </button> */}
         </div>
       </footer>
     </div>

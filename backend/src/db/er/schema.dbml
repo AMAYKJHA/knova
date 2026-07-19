@@ -1,0 +1,255 @@
+// Knova database schema (generated from src/db/models.py)
+// Preview in VS Code, or paste into https://dbdiagram.io
+
+Enum oauthprovider {
+  google
+  facebook
+}
+
+Enum contenttype {
+  text
+  mcq
+  flashcard
+  short_note
+}
+
+Enum interactionsurface {
+  feed
+  profile
+  search
+  topic
+  saved
+}
+
+Table users {
+  id                   uuid [pk, default: `gen_random_uuid()`]
+  ext_id               int [unique, note: 'ML bridge id; NULL for organic users']
+  email                varchar(255) [not null, unique]
+  password_hash        varchar(255)
+  username             varchar(50) [not null, default: 'Username']
+  avatar_url           varchar(512)
+  bio                  varchar(500)
+  is_active            boolean [default: true]
+  onboarding_completed boolean [default: false]
+  created_at           timestamp [default: `now()`]
+  updated_at           timestamp [default: `now()`]
+  last_active_at       timestamp
+  interest_embedding   "vector(384)"
+  estimated_expertise  float [default: 0.5]
+  curiosity_score      float [default: 0.5]
+
+  indexes {
+    ext_id
+    email
+    username
+  }
+}
+
+Table oauth {
+  id               uuid [pk, default: `gen_random_uuid()`]
+  user_id          uuid [not null, ref: > users.id]
+  provider         oauthprovider [not null]
+  provider_user_id varchar(255) [not null]
+  access_token     text
+  refresh_token    text
+  created_at       timestamp [default: `now()`]
+
+  indexes {
+    user_id
+  }
+}
+
+Table creatorprofiles {
+  id                   uuid [pk, default: `gen_random_uuid()`]
+  user_id              uuid [not null, unique, ref: > users.id]
+  ext_id               int [unique, note: 'ML bridge id; NULL for organic creators']
+  headline             varchar(150)
+  credentials          text
+  primary_topics       jsonb
+  authority_score      float [default: 0]
+  follower_count       int [default: 0]
+  avg_post_upvote_rate float [default: 0]
+  is_verified_educator boolean [default: false]
+  created_at           timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    ext_id
+  }
+}
+
+Table creator_follows {
+  id          uuid [pk, default: `gen_random_uuid()`]
+  follower_id uuid [not null, ref: > users.id]
+  creator_id  uuid [not null, ref: > creatorprofiles.id]
+  created_at  timestamp [default: `now()`]
+
+  indexes {
+    (follower_id, creator_id) [unique, name: 'uq_follow_pair']
+    follower_id
+    creator_id
+  }
+}
+
+Table topics {
+  id        uuid [pk, default: `gen_random_uuid()`]
+  name      varchar(80) [not null, unique]
+  parent_id uuid [ref: > topics.id, note: 'hierarchical taxonomy']
+}
+
+Table user_topic_interests {
+  id             uuid [pk, default: `gen_random_uuid()`]
+  user_id        uuid [not null, ref: > users.id]
+  topic_id       uuid [not null, ref: > topics.id]
+  affinity_score float [default: 0]
+  source         varchar(30)
+  updated_at     timestamp [default: `now()`]
+
+  indexes {
+    (user_id, topic_id) [unique, name: 'uq_user_topic']
+    user_id
+    topic_id
+  }
+}
+
+Table posts {
+  id                  uuid [pk, default: `gen_random_uuid()`]
+  ext_id              int [note: 'ML bridge id; NULL for organic posts']
+  creator_id          uuid [not null, ref: > creatorprofiles.id]
+  content_type        contenttype [default: 'text']
+  title               varchar(200)
+  body                text [not null]
+  word_count          int [default: 0]
+  est_read_seconds    int [default: 0]
+  difficulty          float [default: 0.5]
+  topic_id            uuid [ref: > topics.id]
+  embedding           "vector(384)"
+  status              varchar(20) [default: 'published']
+  published_at        timestamp
+  created_at          timestamp [default: `now()`]
+  updated_at          timestamp [default: `now()`]
+  impression_count    int [default: 0]
+  read_complete_count int [default: 0]
+  upvote_count        int [default: 0]
+  downvote_count      int [default: 0]
+  comment_count       int [default: 0]
+  save_count          int [default: 0]
+  share_count         int [default: 0]
+
+  indexes {
+    ext_id
+    creator_id
+    content_type
+    topic_id
+    (topic_id, published_at) [name: 'ix_posts_topic_published']
+  }
+}
+
+Table mcqs {
+  id            uuid [pk, default: `gen_random_uuid()`]
+  post_id       uuid [not null, unique, ref: - posts.id]
+  question      text [not null]
+  options       jsonb [not null]
+  correct_index smallint [not null]
+  explanation   text
+}
+
+Table flashcards {
+  id                 uuid [pk, default: `gen_random_uuid()`]
+  post_id            uuid [not null, unique, ref: - posts.id]
+  front              text [not null]
+  back               text [not null]
+  flip_threshold_sec float
+}
+
+Table tags {
+  id               uuid [pk, default: `gen_random_uuid()`]
+  name             varchar(80) [not null, unique]
+  primary_topic_id uuid [ref: > topics.id, note: 'ON DELETE SET NULL']
+  created_at       timestamp [default: `now()`]
+
+  indexes {
+    name
+    primary_topic_id
+  }
+}
+
+Table post_tags {
+  id      uuid [pk, default: `gen_random_uuid()`]
+  post_id uuid [not null, ref: > posts.id]
+  tag_id  uuid [not null, ref: > tags.id]
+
+  indexes {
+    (post_id, tag_id) [unique, name: 'uq_post_tag']
+    post_id
+    tag_id
+  }
+}
+
+Table interactions {
+  id                uuid [pk, default: `gen_random_uuid()`]
+  user_id           uuid [not null, ref: > users.id]
+  post_id           uuid [not null, ref: > posts.id]
+  surface           interactionsurface [default: 'feed']
+  feed_position     int
+  dwell_time_sec    float [default: 0]
+  scroll_depth      float
+  completion_ratio  float [default: 0]
+  is_completed      boolean [default: false]
+  engagement_weight float [default: 0]
+  quiz_answered     boolean
+  quiz_correct      boolean
+  card_flipped      boolean
+  flip_time_sec     float
+  created_at        timestamptz [default: `now()`]
+
+  indexes {
+    user_id
+    post_id
+    surface
+    (user_id, created_at) [name: 'ix_interactions_user_created']
+    (post_id, created_at) [name: 'ix_interactions_post_created']
+  }
+}
+
+Table votes {
+  id         uuid [pk, default: `gen_random_uuid()`]
+  user_id    uuid [not null, ref: > users.id]
+  post_id    uuid [not null, ref: > posts.id]
+  value      smallint [not null, note: '+1 / -1']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, post_id) [unique, name: 'uq_vote_pair']
+    user_id
+    post_id
+  }
+}
+
+Table saved_posts {
+  id         uuid [pk, default: `gen_random_uuid()`]
+  user_id    uuid [not null, ref: > users.id]
+  post_id    uuid [not null, ref: > posts.id]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, post_id) [unique, name: 'uq_save_pair']
+    user_id
+    post_id
+  }
+}
+
+Table comments {
+  id                uuid [pk, default: `gen_random_uuid()`]
+  post_id           uuid [not null, ref: > posts.id]
+  user_id           uuid [not null, ref: > users.id]
+  parent_comment_id uuid [ref: > comments.id, note: 'threaded replies']
+  body              text [not null]
+  created_at        timestamp [default: `now()`]
+
+  indexes {
+    post_id
+    user_id
+  }
+}
