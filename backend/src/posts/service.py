@@ -12,6 +12,7 @@ from .schemas import (
     McqData,
     PostListResponse,
     PostResponse,
+    SaveResponse,
     UserBrief,
 )
 
@@ -201,3 +202,98 @@ async def get_post(
 
     votes_map, saved_set = await _user_states(db, user_id, [post.id])
     return _serialize_post(post, votes_map.get(post.id), post.id in saved_set)
+
+
+async def cast_vote(
+    db: AsyncSession, user_id: UUID, post_id: UUID, value: int
+) -> PostResponse:
+    """Upsert this user's vote and keep the post's denormalized counters in sync.
+    Re-sending the current value clears the vote (toggle off)."""
+    if value not in (1, -1):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="value must be 1 (upvote) or -1 (downvote)",
+        )
+
+    post = (
+        await db.execute(
+            select(Post).where(Post.id == post_id).options(*_load_options())
+        )
+    ).scalar_one_or_none()
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    existing = (
+        await db.execute(
+            select(Vote).where(Vote.user_id == user_id, Vote.post_id == post_id)
+        )
+    ).scalar_one_or_none()
+
+    if existing is None:
+        db.add(Vote(user_id=user_id, post_id=post_id, value=value))
+        if value == 1:
+            post.upvote_count += 1
+        else:
+            post.downvote_count += 1
+    elif existing.value == value:
+        # same button pressed again -> remove the vote
+        await db.delete(existing)
+        if value == 1:
+            post.upvote_count = max(0, post.upvote_count - 1)
+        else:
+            post.downvote_count = max(0, post.downvote_count - 1)
+    else:
+        # switched sides -> move the count from the old side to the new one
+        existing.value = value
+        if value == 1:
+            post.upvote_count += 1
+            post.downvote_count = max(0, post.downvote_count - 1)
+        else:
+            post.downvote_count += 1
+            post.upvote_count = max(0, post.upvote_count - 1)
+
+    await db.commit()
+
+    # Mutating the row makes the DB regenerate `updated_at` (onupdate=func.now()),
+    # which the commit expires; re-fetch with relationships so serialization never
+    # triggers a lazy (sync) load in this async context.
+    post = (
+        await db.execute(
+            select(Post).where(Post.id == post_id).options(*_load_options())
+        )
+    ).scalar_one()
+
+    votes_map, saved_set = await _user_states(db, user_id, [post.id])
+    return _serialize_post(post, votes_map.get(post.id), post.id in saved_set)
+
+
+async def toggle_save(db: AsyncSession, user_id: UUID, post_id: UUID) -> SaveResponse:
+    """Toggle whether this user has the post saved, keeping save_count in sync."""
+    post = (
+        await db.execute(select(Post).where(Post.id == post_id))
+    ).scalar_one_or_none()
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    existing = (
+        await db.execute(
+            select(SavedPost).where(
+                SavedPost.user_id == user_id, SavedPost.post_id == post_id
+            )
+        )
+    ).scalar_one_or_none()
+
+    if existing is None:
+        db.add(SavedPost(user_id=user_id, post_id=post_id))
+        post.save_count += 1
+        saved = True
+    else:
+        await db.delete(existing)
+        post.save_count = max(0, post.save_count - 1)
+        saved = False
+
+    # Read the counter before commit — commit can expire attributes, and a
+    # post-commit read would lazy-load (sync IO) in this async context.
+    new_count = post.save_count
+    await db.commit()
+    return SaveResponse(post_id=post_id, saved=saved, save_count=new_count)

@@ -3,9 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.deps import get_db, get_optional_user
+from src.deps import get_db, get_optional_user, is_authenticated
 from . import service
-from .schemas import PostListResponse, PostResponse
+from .schemas import PostListResponse, PostResponse, SaveResponse, VoteRequest
 
 router = APIRouter(tags=["posts"])
 
@@ -44,3 +44,24 @@ async def get_post(
 ):
     user_id = uuid.UUID(user["sub"]) if user else None
     return await service.get_post(db, post_id, user_id)
+
+
+@router.post("/{post_id}/vote", response_model=PostResponse)
+async def vote(
+    post_id: uuid.UUID,
+    body: VoteRequest,
+    db: AsyncSession = Depends(get_db),
+    token_payload: dict = Depends(is_authenticated),
+):
+    user_id = uuid.UUID(token_payload["sub"])
+    return await service.cast_vote(db, user_id, post_id, body.value)
+
+
+@router.post("/{post_id}/save", response_model=SaveResponse)
+async def save(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    token_payload: dict = Depends(is_authenticated),
+):
+    user_id = uuid.UUID(token_payload["sub"])
+    return await service.toggle_save(db, user_id, post_id)

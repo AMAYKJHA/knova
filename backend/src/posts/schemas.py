@@ -78,3 +78,14 @@ class PostListResponse(BaseModel):
     page: int
     size: int
     has_next: bool
+
+
+class VoteRequest(BaseModel):
+    # +1 upvote, -1 downvote. Sending the value that's already set clears the vote.
+    value: int
+
+
+class SaveResponse(BaseModel):
+    post_id: UUID
+    saved: bool
+    save_count: int
