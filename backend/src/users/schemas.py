@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from uuid import UUID
 
 class UserProfileResponse(BaseModel):
@@ -36,3 +36,22 @@ class ProfileUpdateRequest(BaseModel):
     headline: str | None = None
     credentials: str | None = None
     primary_topics: list[str] | None = None
+
+
+class InterestItem(BaseModel):
+    topic_id: UUID
+    name: str
+    affinity_score: float = 0.0
+    source: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InterestListResponse(BaseModel):
+    interests: list[InterestItem]
+
+
+class InterestUpdateRequest(BaseModel):
+    # Full set of desired interest topic names (by DB topic name). Replaces the
+    # user's explicit interests; implicit/learned interests are left untouched.
+    interests: list[str]

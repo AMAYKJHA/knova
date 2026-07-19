@@ -3,8 +3,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models import User, CreatorProfile, CreatorFollow, Post
-from .schemas import ProfileUpdateRequest
+from src.db.models import User, CreatorProfile, CreatorFollow, Post, Topic, UserTopicInterest
+from .schemas import InterestItem, InterestListResponse, ProfileUpdateRequest
+
+# Interests the user set by hand (onboarding + settings). set_user_interests only
+# adds/removes within these sources, so implicit signals (inferred, thompson_discovery)
+# learned from engagement survive an edit.
+EXPLICIT_INTEREST_SOURCES = {"onboarding", "manual"}
+MANUAL_AFFINITY = 1.0
 
 async def get_user_profile(db: AsyncSession, username: str) -> dict:
     result = await db.execute(select(User).where(func.lower(User.username) == username.lower()))
@@ -134,5 +140,87 @@ async def update_user_profile(db: AsyncSession, user_id: UUID, data: ProfileUpda
             
     await db.commit()
     await db.refresh(user)
-    
+
     return await get_user_profile(db, user.username)
+
+
+async def get_user_interests(db: AsyncSession, user_id: UUID) -> InterestListResponse:
+    rows = (
+        await db.execute(
+            select(
+                UserTopicInterest.topic_id,
+                Topic.name,
+                UserTopicInterest.affinity_score,
+                UserTopicInterest.source,
+            )
+            .join(Topic, Topic.id == UserTopicInterest.topic_id)
+            .where(UserTopicInterest.user_id == user_id)
+            .order_by(Topic.name)
+        )
+    ).all()
+
+    return InterestListResponse(
+        interests=[
+            InterestItem(topic_id=tid, name=name, affinity_score=float(aff or 0.0), source=src)
+            for tid, name, aff, src in rows
+        ]
+    )
+
+
+async def set_user_interests(
+    db: AsyncSession, user_id: UUID, interests: list[str]
+) -> InterestListResponse:
+    """Replace the user's *explicit* interests with the given topic names. Adds new
+    picks, removes explicit ones no longer selected, and promotes a previously
+    implicit interest to explicit if the user re-selects it. Learned implicit
+    interests that aren't re-selected are left in place."""
+    names = list(dict.fromkeys(i.strip() for i in interests if i and i.strip()))
+
+    resolved = (
+        await db.execute(
+            select(Topic).where(func.lower(Topic.name).in_([n.lower() for n in names]))
+        )
+    ).scalars().all() if names else []
+    topic_by_lower = {t.name.lower(): t for t in resolved}
+
+    unresolved = [n for n in names if n.lower() not in topic_by_lower]
+    if unresolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown topics: {', '.join(unresolved)}",
+        )
+
+    desired_ids = {t.id for t in topic_by_lower.values()}
+
+    existing = {
+        row.topic_id: row
+        for row in (
+            await db.execute(
+                select(UserTopicInterest).where(UserTopicInterest.user_id == user_id)
+            )
+        ).scalars().all()
+    }
+
+    # add new / promote implicit -> explicit
+    for tid in desired_ids:
+        row = existing.get(tid)
+        if row is None:
+            db.add(
+                UserTopicInterest(
+                    user_id=user_id,
+                    topic_id=tid,
+                    affinity_score=MANUAL_AFFINITY,
+                    source="manual",
+                )
+            )
+        elif row.source not in EXPLICIT_INTEREST_SOURCES:
+            row.source = "manual"
+            row.affinity_score = MANUAL_AFFINITY
+
+    # remove explicit interests the user deselected (keep implicit ones)
+    for tid, row in existing.items():
+        if tid not in desired_ids and row.source in EXPLICIT_INTEREST_SOURCES:
+            await db.delete(row)
+
+    await db.commit()
+    return await get_user_interests(db, user_id)
