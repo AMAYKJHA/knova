@@ -19,8 +19,10 @@ FROM python:3.12-slim AS runtime
 WORKDIR /app
 
 # libpq5 (runtime lib) not libpq-dev (headers) — needed if using psycopg2, not asyncpg
+# libgomp1 — OpenMP runtime required by LightGBM's native lib (libgomp.so.1)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv
