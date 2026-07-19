@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, UTC
 
 from fastapi import HTTPException, Response
@@ -17,7 +18,12 @@ async def refresh_user_session(response: Response, db: AsyncSession, refresh_tok
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-    user = await db.get(User, payload["sub"])
+    try:
+        user_id = uuid.UUID(str(payload["sub"]))
+    except (ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
