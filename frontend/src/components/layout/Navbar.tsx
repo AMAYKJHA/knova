@@ -115,7 +115,7 @@ export default function Navbar() {
           </Link>
 
           {user ? (
-            <div ref={dropdownRef} className="relative">
+            <div ref={dropdownRef} className="hidden md:block relative">
               <div
                 onClick={() => setDropDownOpen((prev) => !prev)}
                 className="h-9 w-9 rounded-full bg-[#2cbcfd] flex items-center justify-center overflow-hidden border border-[#e4e2e2] cursor-pointer"
